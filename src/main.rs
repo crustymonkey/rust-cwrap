@@ -195,9 +195,10 @@ fn main() {
 
     // Setup signals after the manager to handle the signals and unlock in
     // the manager
-    let signals = Signals::new(&[SIGINT, SIGTERM, SIGHUP]);
+    let mut signals = Signals::new(&[SIGINT, SIGTERM, SIGHUP]).ok().unwrap();
     thread::spawn(move || {
-        for _ in signals {
+        for sig in signals.pending() {
+            debug!("Received signal {}, exiting", sig);
             statefile.unlock().ok();
         }
     });

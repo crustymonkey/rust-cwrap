@@ -28,7 +28,11 @@ impl RunManager {
         };
 
         let mut statefile = StateFile::from_strs(
-            &StateFile::gen_name(&cmd, &cmd_args),
+            &StateFile::gen_name(
+                &cmd,
+                &cmd_args,
+                args.is_present("bash-string"),
+            ),
             args.value_of("state_dir").unwrap(),
         );
 
@@ -74,7 +78,7 @@ impl RunManager {
         if fuzz > 0 {
             // Sleep for a random bit here
             let sl_time: u64 = random!(..=fuzz);
-            debug!("Sleepint for {} secs", sl_time);
+            debug!("Sleeping (fuzz) for {} secs", sl_time);
             sleep_ms!(sl_time * 1000);
         }
 
@@ -83,6 +87,9 @@ impl RunManager {
             // We have a failure of some sort here
             self.handle_failure(run);
         } else {
+            if !a.is_present("quiet") {
+                self.print_success_report(&run);
+            }
             self.cmd_state.reset();
         }
 
@@ -97,33 +104,36 @@ impl RunManager {
         self.cmd_state.num_fails += 1;
         let fail_thresh: usize = value_t!(a, "num_fails", usize).ok().unwrap();
 
-        // Now, determine whether we print a report or not.  I could do this as
-        // a single OR statement, but it's a bit more readable as if/else if
-        if a.is_present("backoff") && self.backoff_match() {
-            self.print_failure_report(&run);
-        } else if self.cmd_state.num_fails % fail_thresh == 0 {
-            self.print_failure_report(&run);
-        } else if a.is_present("first-fail") && self.cmd_state.num_fails == 1 {
-            self.print_failure_report(&run);
-        }
-
         if a.is_present("syslog") {
             // Need to serialize the command run and write that
             match serde_json::to_string(&run) {
-                Ok(data) => self.log(&format!("CWRAP FAILURE: {}", data)),
+                Ok(data) => self.log(
+                    &format!(
+                        "CWRAP FAILURE for `{}`: {}",
+                        self.cmd_state.cli_to_string(),
+                        data,
+                    )
+                ),
                 Err(e) => self.log(
                     &format!("Error serializing run error: {}", e)
                 ),
             }
         }
-        
-        if !a.is_present("quiet") {
-            self.print_success_report(&run);
-        }
 
-        // Finally, increment the failure and push the failure into the
-        // failures vec
-        self.cmd_state.failures.push(run);
+        // Now, determine whether we print a report or not.  I could do this as
+        // a single OR statement, but it's a bit more readable as if/else if
+        if a.is_present("backoff") && self.backoff_match() {
+            self.print_failure_report(&run);
+        } else if self.cmd_state.num_fails % fail_thresh == 0 
+                && !a.is_present("backoff") {
+            self.print_failure_report(&run);
+        } else if a.is_present("first-fail") && self.cmd_state.num_fails == 1 {
+            self.print_failure_report(&run);
+        } else {
+            // Finally, increment the failure and push the failure into the
+            // failures vec if we haven't run a report
+            self.cmd_state.failures.push(run);
+        }
     }
 
     fn print_failure_report(&mut self, run: &cmdstate::CmdRun) {
@@ -222,15 +232,19 @@ impl RunManager {
         let mut ret: lockfile::Result<()> = Ok(());
 
         while i64::from(tries) > try_count {
+            debug!("Attempting to acquire lock to run");
             ret = self.statefile.lock();
-            if ret.is_err() {
+            if ret.is_err() && tries > 0 {
                 try_count += 1;
                 sleep_ms!(ret_secs * 1000);
             } else {
                 break;
             }
         }
-        
+        if ret.is_ok() {
+            debug!("Lock successfully acquired!");
+        }
+
         return ret;
     }
 

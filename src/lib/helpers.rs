@@ -92,3 +92,15 @@ pub fn format_ts(ts: f64) -> String {
 
     return dt.to_rfc2822();
 }
+
+/// Check for a "/" in the cmd, and if it's there, just get the
+/// binary name
+pub fn basename(path: &str) -> String {
+    return match path.find("/") {
+        Some(_) => {
+            let idx = path.rfind("/").unwrap() + 1;  // After the last "/"
+            path[idx..].to_string()
+        },
+        None => path.to_string(),
+    };
+}

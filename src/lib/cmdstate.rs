@@ -112,7 +112,7 @@ impl CmdRun {
     pub fn run(cmd: &CmdState, args: Arc<ArgMatches<'static>>) -> Self {
         let start = SystemTime::now();
 
-        debug!("Spawning the child process");
+        debug!("Spawning the child process for {}", cmd.cli_to_string());
         let mut proc;
 
         if args.is_present("bash-string") {
@@ -120,7 +120,7 @@ impl CmdRun {
             proc = match Command::new("bash")
                     .args(&["-c".to_string(), cmd.cmd.clone()])
                     .stdout(Stdio::piped())
-                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
                     .spawn() {
                 Ok(child) => child,
                 Err(e) => {
@@ -133,7 +133,7 @@ impl CmdRun {
             proc = match Command::new(&cmd.cmd)
                     .args(&cmd.cmd_args)
                     .stdout(Stdio::piped())
-                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
                     .spawn() {
                 Ok(child) => child,
                 Err(e) => {
@@ -167,17 +167,34 @@ impl CmdRun {
                 }
             }
         }
+
         // Check to see if we went over time
-        if run_time > timeout {
+        if timeout > 0 && run_time >= timeout {
             match &proc.try_wait() {
                 Ok(None) => {
+                    debug!("Timeout exceeded, killing the subprocess");
+
                     match proc.kill() {
-                        Ok(_) => (),
-                        Err(e) => {
-                            return CmdRun::rust_err(
-                                format!("Failed to kill subprocess! {}", e)
-                            );
-                        }
+                        Ok(_) => return Self {
+                            exit_code: -1,
+                            stdout: String::new(),
+                            stderr: String::new(),
+                            start_time: start
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs_f64(),
+                            run_time: SystemTime::now()
+                                .duration_since(start)
+                                .unwrap()
+                                .as_secs_f64(),
+                            rust_err: Some(format!(
+                                "Command reached timeout of {} secs",
+                                timeout / 1000,
+                            )),
+                        },
+                        Err(e) => return CmdRun::rust_err(
+                            format!("Failed to kill subprocess! {}", e)
+                        ),
                     }
                 },
                 _ => (),
@@ -193,14 +210,14 @@ impl CmdRun {
             },
         };
 
-        let run_time = SystemTime::now().duration_since(start).unwrap();
+        let total_run_time = SystemTime::now().duration_since(start).unwrap();
 
         return Self {
             exit_code: output.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             start_time: start.duration_since(UNIX_EPOCH).unwrap().as_secs_f64(),
-            run_time: run_time.as_secs_f64(),
+            run_time: total_run_time.as_secs_f64(),
             rust_err: None,
         };
     }

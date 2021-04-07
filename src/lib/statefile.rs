@@ -1,12 +1,13 @@
 extern crate md5;
 
 use std::convert::From;
-use std::fs::{File, remove_file};
+use std::fs::{File, OpenOptions, remove_file};
+use std::os::unix::fs::OpenOptionsExt;
 use std::io::{self, Write, Read};
 use std::path::PathBuf;
 use std::process;
 use super::errors::lockfile;
-
+use super::helpers::basename;
 #[derive(Clone)]
 pub struct StateFile {
     name: String,
@@ -34,22 +35,26 @@ impl StateFile {
         };
     }
 
-    pub fn gen_name(cmd: &str, args: &Vec<String>) -> String {
-        // Check for a "/" in the cmd, and if it's there, just get the
-        // binary name
-        let mut cli: String = match cmd.find("/") {
-            Some(_) => {
-                let idx = cmd.rfind("/").unwrap() + 1;  // After the last "/"
-                cmd[idx..].to_string()
-            },
-            None => cmd.to_string(),
-        };
-        cli.push_str(" ");
-        cli.push_str(&args.join(" "));
+    /// Generate a name for the statefile, which is:
+    ///     <command basename>.<md5 of full cli>
+    pub fn gen_name(cmd: &str, args: &Vec<String>, is_bash: bool) -> String {
+        let mut cli = cmd.to_string();
+        if args.len() > 0 {
+            cli.push_str(" ");
+            cli.push_str(&args.join(" "));
+        }
 
         let hash_str = format!("{:x}", md5::compute(cli.as_bytes()));
+        // This will get set based on whether it's a bash string or separate
+        // args
+        let mut ret;
 
-        let mut ret = cmd.to_string();
+        if is_bash {
+            ret = basename(cli.split(" ").collect::<Vec<&str>>()[0]);
+        } else {
+            ret = basename(cmd);
+        }
+
         ret.push_str(".");
         ret.push_str(&hash_str);
 
@@ -70,7 +75,12 @@ impl StateFile {
     }
 
     pub fn write_contents(&self, contents: String) -> io::Result<()> {
-        let mut fp = File::create(&self.full_p)?;
+        let mut fp = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&self.full_p)?;
         let mut buf: Vec<u8> = contents.into_bytes();
         fp.write_all(&mut buf)?;
 
@@ -84,7 +94,12 @@ impl StateFile {
         }
         
         // Write the current pid to the lockfile and handle errors
-        match File::create(&self.lockfile) {
+        match OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&self.lockfile) {
             Ok(mut fp) => {
                 let mut b: Vec<u8> = process::id()
                     .to_string()
@@ -101,11 +116,14 @@ impl StateFile {
             )),
         }
 
+        debug!("Created lockfile at {}", &self.lockfile.display());
+
         return Ok(());
     }
 
     pub fn unlock(&self) -> lockfile::Result<()> {
         if self.lockfile.exists() {
+            debug!("Removing lockfile at: {}", &self.lockfile.display());
             if let Err(e) = remove_file(&self.lockfile) {
                 return Err(lockfile::LockError::new(
                     format!("Failure removing the lock file: {}", e)
