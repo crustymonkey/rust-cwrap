@@ -7,7 +7,8 @@ use std::io::{self, Write, Read};
 use std::path::PathBuf;
 use std::process;
 use super::errors::lockfile;
-use super::helpers::basename;
+use super::helpers::sanitize_path;
+
 #[derive(Clone)]
 pub struct StateFile {
     name: String,
@@ -50,9 +51,9 @@ impl StateFile {
         let mut ret;
 
         if is_bash {
-            ret = basename(cli.split(" ").collect::<Vec<&str>>()[0]);
+            ret = sanitize_path(cli.split(" ").collect::<Vec<&str>>()[0], '-');
         } else {
-            ret = basename(cmd);
+            ret = sanitize_path(cmd, '-');
         }
 
         ret.push_str(".");
@@ -132,4 +133,21 @@ impl StateFile {
         }
         return Ok(());
     }
+}
+
+#[test]
+fn test_statefile_from_strs() {
+    let name = "bin-cat.abcdef";
+    let dir = "/var/tmp";
+    let s = StateFile::from_strs(name, dir);
+    let lockname = name.to_string() + ".lock";
+
+    assert_eq!(s.name, name.to_string());
+    assert_eq!(s.base_path, PathBuf::from(dir));
+    let mut tmp = PathBuf::from(dir);
+    tmp.push(name);
+    assert_eq!(s.full_p, tmp);
+    tmp.push(dir);
+    tmp.push(lockname);
+    assert_eq!(s.lockfile, tmp);
 }

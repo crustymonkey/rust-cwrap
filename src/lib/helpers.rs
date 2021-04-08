@@ -95,6 +95,7 @@ pub fn format_ts(ts: f64) -> String {
 
 /// Check for a "/" in the cmd, and if it's there, just get the
 /// binary name
+#[allow(dead_code)]
 pub fn basename(path: &str) -> String {
     return match path.find("/") {
         Some(_) => {
@@ -103,4 +104,47 @@ pub fn basename(path: &str) -> String {
         },
         None => path.to_string(),
     };
+}
+
+/// Convert a path from something like "/path/to/thing" to path-to-thing (or
+/// whatever is set for the separator)
+pub fn sanitize_path(path: &str, sep: char) -> String {
+    let mut ret = path.replace("/", &sep.to_string());
+    if ret.starts_with(sep) {
+        ret = ret.trim_matches(sep).to_string();
+    }
+
+    // Last, replace a leading period with an underscore so it isn't hidden
+    if ret.starts_with(".") {
+        let tail = &ret[1..];
+        let mut tmp = "_".to_string();
+        tmp.push_str(tail);
+        ret = tmp;
+    }
+
+    return ret;
+}
+
+#[test]
+fn test_sanitize_path() {
+    assert_eq!("cd", sanitize_path("cd", '-'));
+    assert_eq!("usr-bin-true", sanitize_path("/usr/bin/true", '-'));
+    assert_eq!("usr-bin-dir", sanitize_path("/usr/bin/dir/", '-'));
+    assert_eq!("_-monkey.py", sanitize_path("./monkey.py", '-'));
+    assert_eq!("_.-..-monkey.py", sanitize_path("../../monkey.py", '-'));
+}
+
+#[test]
+fn test_basename() {
+    assert_eq!("cat", basename("/bin/cat"));
+    assert_eq!("cd", basename("cd"));
+    assert_eq!("e", basename("/a/b/../d/e"));
+    assert_eq!("a", basename("./a"));
+}
+
+#[test]
+fn test_format_ts() {
+    assert_eq!("Fri, 14 Jul 2017 02:40:00 +0000", format_ts(1_500_000_000.0));
+    assert_eq!("Thu, 01 Jan 1970 00:00:00 +0000", format_ts(0.0));
+    assert_eq!("Wed, 31 Dec 1969 23:59:59 +0000", format_ts(-1.0));
 }

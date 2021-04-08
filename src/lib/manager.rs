@@ -189,7 +189,7 @@ impl RunManager {
             rep.push_str(&format!("{}\n", fail.exit_code));
         }
 
-        if fail.stdout.len() > 0 {
+        if !fail.stdout.is_empty() {
             rep.push_str("\n");
             rep.push_str(&format!("STDOUT:\n{}", out_div));
             rep.push_str(&fail.stdout);
@@ -197,7 +197,7 @@ impl RunManager {
             rep.push_str(out_div);
         }
 
-        if fail.stderr.len() > 0 {
+        if !fail.stderr.is_empty() {
             rep.push_str("\n");
             rep.push_str(&format!("STDERR:\n{}", out_div));
             rep.push_str(&fail.stderr);
