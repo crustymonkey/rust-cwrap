@@ -3,3 +3,4 @@ pub mod statefile;
 pub mod errors;
 pub mod cmdstate;
 pub mod manager;
+pub mod smtp;
