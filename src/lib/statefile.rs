@@ -91,7 +91,7 @@ impl StateFile {
     pub fn lock(&self) -> lockfile::Result<()> {
         if self.lockfile.exists() {
             return Err(lockfile::LockError::new(
-                "Lockfile exists".to_string()));
+                format!("Lockfile exists: {}", self.lockfile.display())));
         }
         
         // Write the current pid to the lockfile and handle errors
