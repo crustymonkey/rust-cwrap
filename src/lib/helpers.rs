@@ -88,7 +88,7 @@ pub fn format_ts(ts: f64) -> String {
     let secs: i64 = fsecs.round() as i64;
     let nsecs: u32 = ((ts - fsecs) * 1_000_000_000.0).round() as u32;
 
-    let dt = Utc.timestamp(secs, nsecs);
+    let dt = Utc.timestamp_opt(secs, nsecs).unwrap();
 
     return dt.to_rfc2822();
 }

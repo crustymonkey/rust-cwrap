@@ -203,18 +203,7 @@ fn main() {
         }
     });
 
-    if let Err(e) = mgr.lock() {
-        if !args.is_present("ignore-retry-fails") {
-            error!(
-                "Could not get lock to run instance in {} retries: {}",
-                value_t!(args, "num_retries", u32).unwrap(),
-                e,
-            );
-            exit(1);
-        }
-    }
-
-    mgr.run_instance();
+    mgr.run_instance(true);
     
     if let Err(e) = mgr.unlock() {
         error!("Failed to unlock this instance: {}", e);

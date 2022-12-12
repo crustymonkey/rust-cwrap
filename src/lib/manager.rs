@@ -5,6 +5,7 @@ use serde_json;
 use clap::{ArgMatches, value_t};
 use std::sync::Arc;
 use std::path::PathBuf;
+use std::process::exit;
 use super::cmdstate;
 use super::helpers::{SyslogHelper, format_ts};
 use crate::sleep_ms;
@@ -69,7 +70,7 @@ impl RunManager {
         };
     }
 
-    pub fn run_instance(&mut self) {
+    pub fn run_instance(&mut self, lock: bool) {
         // This is a hack to make the value_t macro work properly.  Not a big
         // deal as it's just another ref count
         let a = self.args.clone();
@@ -80,6 +81,22 @@ impl RunManager {
             let sl_time: u64 = random!(..=fuzz);
             debug!("Sleeping (fuzz) for {} secs", sl_time);
             sleep_ms!(sl_time * 1000);
+        }
+
+        if lock {
+            if let Err(e) = self.lock() {
+                if !self.args.is_present("ignore-retry-fails") {
+                    let num_retries = self.args.value_of("num_retries")
+                        .unwrap()
+                        .parse::<u32>().unwrap();
+                    error!(
+                        "Could not get lock to run instance in {} retries: {}",
+                        num_retries,
+                        e,
+                    );
+                    exit(1);
+                }
+            }
         }
 
         let run = cmdstate::CmdRun::run(&self.cmd_state, self.args.clone());

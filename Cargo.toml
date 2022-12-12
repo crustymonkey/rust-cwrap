@@ -1,6 +1,6 @@
 [package]
 name = "cwrap"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Jay Deiman <jay@splitstreams.com>"]
 description = """This is a binary that can be used to wrap something that is \
     run via crontab.  This will suppress failure (and success)output per \
