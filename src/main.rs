@@ -13,8 +13,8 @@ use std::env;
 use signal_hook::iterator::Signals;
 use signal_hook::consts::signal::{SIGINT, SIGHUP, SIGTERM};
 
-mod lib;
-use lib::manager::RunManager;
+mod wlib;
+use wlib::manager::RunManager;
 
 static LOGGER: GlobalLogger = GlobalLogger;
 
