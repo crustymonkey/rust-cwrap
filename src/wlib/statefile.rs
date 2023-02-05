@@ -9,6 +9,7 @@ use std::process;
 use super::errors::lockfile;
 use super::helpers::sanitize_path;
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct StateFile {
     name: String,
