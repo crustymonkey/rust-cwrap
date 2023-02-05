@@ -6,6 +6,10 @@ description = """This is a binary that can be used to wrap something that is \
     run via crontab.  This will suppress failure (and success)output per \
     specifications on the command-line."""
 edition = "2018"
+repository = "https://github.com/crustymonkey/rust-cwrap"
+license = "GPL-2.0-or-later"
+homepage = "https://github.com/crustymonkey/rust-cwrap"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
