@@ -78,9 +78,9 @@ fn get_args() -> ArgMatches<'static> {
             .help("The number of seconds between retries if locked")
         )
         .arg_from_usage("-i, --ignore-retry-fails 'Ignore the failures which \
-            occur becuase this tried to while a previous instance was still \
-            running. Basically, an error will not be printed if the number \
-            of run retries were exceeded."
+            occur because this tried to run while a previous instance was \
+            still running. Basically, an error will not be printed if the \
+            number of run retries were exceeded."
         )
         .arg(Arg::with_name("num_fails")
             .short("-n")
