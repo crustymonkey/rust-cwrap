@@ -83,12 +83,9 @@ impl SyslogHelper {
 
 /// Return a formatted timestamp string
 pub fn format_ts(ts: f64) -> String {
-    // hacky, but it works
-    let fsecs = ts.floor();
-    let secs: i64 = fsecs.round() as i64;
-    let nsecs: u32 = ((ts - fsecs) * 1_000_000_000.0).round() as u32;
+    let secs: i64 = ts.round() as i64;
 
-    let dt = Utc.timestamp_opt(secs, nsecs).unwrap();
+    let dt = Utc.timestamp_opt(secs, 0).unwrap();
 
     return dt.to_rfc2822();
 }
