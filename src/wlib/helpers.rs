@@ -142,6 +142,6 @@ fn test_basename() {
 #[test]
 fn test_format_ts() {
     assert_eq!("Fri, 14 Jul 2017 02:40:00 +0000", format_ts(1_500_000_000.0));
-    assert_eq!("Thu, 01 Jan 1970 00:00:00 +0000", format_ts(0.0));
+    assert_eq!("Thu, 1 Jan 1970 00:00:00 +0000", format_ts(0.0));
     assert_eq!("Wed, 31 Dec 1969 23:59:59 +0000", format_ts(-1.0));
 }
