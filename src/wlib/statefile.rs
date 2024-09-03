@@ -20,14 +20,14 @@ pub struct StateFile {
 
 impl StateFile {
     pub fn from_strs(name: &str, base_path: &str) -> Self {
-        let fname = name.to_string() + ".lock";
+        let lock_name = name.to_string() + ".lock";
         let bp = PathBuf::from(base_path);
 
         let mut full_p = bp.clone();
         full_p.push(name);
 
-        let mut lockfile = full_p.clone();
-        lockfile.set_file_name(fname);
+        let mut lockfile = PathBuf::from("/dev/shm/");
+        lockfile.push(lock_name);
 
         return StateFile {
             name: name.to_string(),
@@ -136,19 +136,24 @@ impl StateFile {
     }
 }
 
-#[test]
-fn test_statefile_from_strs() {
-    let name = "bin-cat.abcdef";
-    let dir = "/var/tmp";
-    let s = StateFile::from_strs(name, dir);
-    let lockname = name.to_string() + ".lock";
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert_eq!(s.name, name.to_string());
-    assert_eq!(s.base_path, PathBuf::from(dir));
-    let mut tmp = PathBuf::from(dir);
-    tmp.push(name);
-    assert_eq!(s.full_p, tmp);
-    tmp.push(dir);
-    tmp.push(lockname);
-    assert_eq!(s.lockfile, tmp);
+    #[test]
+    fn test_statefile_from_strs() {
+        let name = "bin-cat.abcdef";
+        let dir = "/var/tmp";
+        let s = StateFile::from_strs(name, dir);
+        let lockname = name.to_string() + ".lock";
+
+        assert_eq!(s.name, name.to_string());
+        assert_eq!(s.base_path, PathBuf::from(dir));
+        let mut tmp = PathBuf::from(dir);
+        tmp.push(name);
+        assert_eq!(s.full_p, tmp);
+        tmp = PathBuf::from("/dev/shm");
+        tmp.push(lockname);
+        assert_eq!(s.lockfile, tmp);
+    }
 }
