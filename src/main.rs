@@ -5,7 +5,8 @@ extern crate clap;
 extern crate log;
 extern crate signal_hook;
 
-use clap::{ArgMatches, App, Arg};
+use clap::Parser;
+use core::arch;
 use std::sync::Arc;
 use std::process::exit;
 use std::thread;
@@ -15,6 +16,89 @@ use signal_hook::consts::signal::{SIGINT, SIGHUP, SIGTERM};
 
 mod wlib;
 use wlib::manager::RunManager;
+
+#[derive(Parser, Debug)]
+#[command(
+    name=crate_name!(),
+    author=create_authors!(),
+    version=crate_version!(),
+    about=crate_description!(),
+    long_about=None
+)]
+struct Args {
+    /// The directory to write the state file to
+    #[arg(short='d', long="state_directory", default_value="/var/tmp")]
+    state_dir: String,
+    /// Set a specific lock file to use. The default is to generate one,
+    /// but this can be useful if you have different jobs that can't run concurrently.
+    #[arg(short='F', long)]
+    lock_file: Option<String>,
+    /// The number of times to retry this if a previous instance is running.
+    /// This will try every '-s' seconds if this is greater than zero.
+    #[arg(short='r', long, default_value=0)]
+    num_retries: usize,
+    /// The number of seconds between retries if locked
+    #[arg(short='s', long, default_value=10)]
+    retry_secs: usize,
+    /// Ignore the failures which occur because this tried
+    /// to run while a previous instance was still running.
+    #[arg(short, long)]
+    ignore_retry_fails: bool,
+    /// The number of consecutive failures that must occur
+    /// before a report is printed.
+    #[arg(short, long, default_value=1)]
+    num_fails: usize,
+    /// The default is to print a failure report only when a
+    /// multiple of the threshold. If this is set, a report will
+    /// *also* be generated on the 1st failure
+    #[arg(short, long)]
+    first_fail: bool,
+    /// Instead of generating a report every '-n' failures, if this is set, 
+    /// a report is generated at a decaying rate.  If you set '--num-fails'
+    /// to 3, then a report is produced at 3, 6, 12, 24... failures.
+    #[arg(short, long)]
+    backoff: bool,
+    /// Use this for the PATH variable instead of the default.
+    #[arg(short, long)]
+    path: Option<String>,
+    /// If this flag is set, it signals that the command passed in
+    /// should be run in a subshell as a single string.  This is useful for
+    /// commands that include a '|' or similar character.
+    /// Ex: `cat /tmp/file | grep stuff`"
+    #[arg(short='g', long)]
+    bash_string: bool,
+    /// The number of seconds to allow the command to run before timing it out.
+    /// If set to zero (default), timeouts are disabled.
+    #[arg(short, long, default_value=0)]
+    timeout: usize,
+    /// This will add a random sleep between 0 and N seconds before
+    /// executing the command.  Note that '--timeout' only pertains
+    /// to command execution time.
+    #[arg(short='z', long, default_value=0)]
+    fuzz: usize,
+    /// Only output error reports. If the command runs successfully,
+    /// command runs successfully, nothing will be printed, even if
+    /// the command had stdout or stderr output.
+    #[arg(short, long)]
+    quiet: bool,
+    /// If this is set, it will log *all* failures to syslog.
+    /// This is useful for diagnosing intermittent failures that don't
+    /// necessarily trip the number of failures for a report
+    #[arg(short='S', long)]
+    syslog: bool,
+    /// Set the logging facility.  The list of available facilities is here: http://t.ly/2nqs
+    #[arg(short='C', long="syslog_facility", default_value="log_local7")]
+    syslog_fac: String,
+    /// Set the syslog priority
+    #[arg(short='P', long="syslog_priority", default_value="log_info")]
+    syslog_pri: String,
+    /// The command and its arguments to run
+    #[arg()]
+    args: Option<Vec<String>>,
+    /// Turn on debug output
+    #[arg(short='D', long)]
+    debug: bool,
+}
 
 static LOGGER: GlobalLogger = GlobalLogger;
 
@@ -45,129 +129,8 @@ impl log::Log for GlobalLogger {
 }
 
 /// Create a set of CLI args via the `clap` crate and return the matches
-fn get_args() -> ArgMatches<'static> {
-    let matches = App::new(crate_name!())
-        .version(crate_version!())
-        .author("Jay Deiman")
-        .about(crate_description!())
-        .set_term_width(80)
-        .arg(Arg::with_name("state_dir")
-            .short("-d")
-            .long("--state-directory")
-            .default_value("/var/tmp")
-            .help("The directory to write the state file to")
-        )
-        .arg_from_usage("-F, --lock-file [FILE] 'Set a specific lock file \
-            to use. The default is to generate one, but this can be useful \
-            if you have different jobs that can't run concurrently.'"
-        )
-        .arg(Arg::with_name("num_retries")
-            .default_value("0")
-            .short("-r")
-            .long("--num-retries")
-            .value_name("INT")
-            .help("The number of times to retry this if a previous instance \
-                is running. This will try every '-s' seconds if this is \
-                greater than zero")
-        )
-        .arg(Arg::with_name("retry_secs")
-            .short("-s")
-            .long("--retry-seconds")
-            .default_value("10")
-            .value_name("SECS")
-            .help("The number of seconds between retries if locked")
-        )
-        .arg_from_usage("-i, --ignore-retry-fails 'Ignore the failures which \
-            occur because this tried to run while a previous instance was \
-            still running. Basically, an error will not be printed if the \
-            number of run retries were exceeded."
-        )
-        .arg(Arg::with_name("num_fails")
-            .short("-n")
-            .long("--num-fails")
-            .default_value("1")
-            .value_name("INT")
-            .help("The number of consecutive failures that must occur before \
-                a report is printed"
-            )
-        )
-        .arg_from_usage("-f, --first-fail 'The default is to print a failure \
-            report only when a multiple of the threshold is reached.  If \
-            this is set, a report will *also* be generated on the 1st failure"
-        )
-        .arg_from_usage("-b, --backoff 'Instead of generating a report every \
-            '-n' failures, if this is set, a report is generated at a \
-            decaying rate.  If you set '--num-fails' to 3, then a report is \
-            produced at 3, 6, 12, 24... failures.")
-        .arg_from_usage("-p, --path [PATH] 'Use this for the PATH variable \
-            instead of the default'"
-        )
-        .arg_from_usage("-g, --bash-string 'If this flag is set, it signals \
-            that the command passed in should be run in a subshell as a \
-            single string.  This is useful for commands that include a '|' \
-            or similar character.  Ex: `cat /tmp/file | grep stuff`"
-        )
-        .arg(Arg::with_name("timeout")
-            .short("-t")
-            .long("--timeout")
-            .default_value("0")
-            .value_name("SECS")
-            .help("The number of seconds to allow the command to run before \
-                timing it out.  If set to zero (default), timeouts are \
-                disabled"
-            )
-        )
-        .arg(Arg::with_name("fuzz")
-            .short("-z")
-            .long("--fuzz")
-            .default_value("0")
-            .value_name("SECS")
-            .help("This will add a random sleep between 0 and N seconds before \
-                executing the command.  Note that '--timeout' only pertains \
-                to command execution time."
-            )
-        )
-        .arg_from_usage("-q, --quiet 'Only output error reports. If the \
-            command runs successfully, nothing will be printed, even if the \
-            command had stdout or stderr output."
-        )
-        .arg_from_usage("-S, --syslog 'If this is set, it will log *all* \
-            failures to syslog.  This is useful for diagnosing intermittent \
-            failures that don't necessarily trip the number of failures for a \
-            report"
-        )
-        .arg(Arg::with_name("syslog_fac")
-            .short("-C")
-            .long("--syslog-facility")
-            .default_value("log_local7")
-            .value_name("FACILITY")
-            .help("Set the logging facility.  The list of available facilities \
-                is here: http://t.ly/2nqs"
-            )
-        )
-        .arg(Arg::with_name("syslog_pri")
-            .short("-P")
-            .long("--syslog-priority")
-            .default_value("log_info")
-            .value_name("PRIORITY")
-            .help("Set the syslog priority")
-        )
-        .arg_from_usage("-D, --debug 'Turn on debug output'")
-        .arg(Arg::with_name("CMD")
-            .required(true)
-            .index(1)
-            .help("The command to run.  This can be a string passed to bash \
-                if '-g' is set."
-            )
-        )
-        .arg(Arg::with_name("ARGS")
-            .required(false)
-            .multiple(true)
-            .help("The arguments for the CMD")
-        )
-        .get_matches();
-
-    return matches;
+fn get_args() -> Args {
+    return Args::parse();
 }
 
 /// Set the global logger from the `log` crate
@@ -186,7 +149,7 @@ fn main() {
     let args = Arc::new(get_args());
     setup_logging(&args);
 
-    if let Some(p) = args.value_of("path") {
+    if let Some(p) = args.path {
         env::set_var("PATH", p);
     }
 
