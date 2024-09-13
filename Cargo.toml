@@ -14,13 +14,13 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = "2.33.3"
-log = "0.4.14"
-chrono = "0.4.19"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-syslog = "5.0"
-hostname = "0.3.1"
+clap = "4"
+log = "0.4"
+chrono = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+syslog = "7.0"
+hostname = "0.4"
 md5 = "0.7"
 random-number = "0.1"
 signal-hook = "0.3"
