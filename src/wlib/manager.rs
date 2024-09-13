@@ -2,13 +2,13 @@ extern crate random_number;
 
 use log::{debug, error};
 use serde_json;
-use clap::{ArgMatches, value_t};
 use std::sync::Arc;
 use std::path::PathBuf;
 use std::process::exit;
 use super::cmdstate;
 use super::helpers::{SyslogHelper, format_ts};
 use crate::sleep_ms;
+use crate::Args;
 use super::statefile::StateFile;
 use super::errors::lockfile;
 use random_number::random;
@@ -21,8 +21,8 @@ pub struct RunManager {
 }
 
 impl RunManager {
-    pub fn new(args: Arc<ArgMatches<'static>>) -> Self {
-        let cmd = args.value_of("CMD").unwrap().to_owned();
+    pub fn new(args: &Args) -> Self {
+        let cmd = args.cmd.unwrap();
         let cmd_args = match args.values_of_lossy("ARGS") {
             Some(v) => v,
             None => Vec::new(),

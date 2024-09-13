@@ -1,9 +1,5 @@
-extern crate chrono;
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate log;
-extern crate signal_hook;
+#[macro_use] extern crate clap;
+#[macro_use] extern crate log;
 
 use clap::Parser;
 use core::arch;
@@ -20,7 +16,7 @@ use wlib::manager::RunManager;
 #[derive(Parser, Debug)]
 #[command(
     name=crate_name!(),
-    author=create_authors!(),
+    author=crate_authors!(),
     version=crate_version!(),
     about=crate_description!(),
     long_about=None
@@ -94,7 +90,7 @@ struct Args {
     syslog_pri: String,
     /// The command and its arguments to run
     #[arg()]
-    args: Option<Vec<String>>,
+    cmd: Option<Vec<String>>,
     /// Turn on debug output
     #[arg(short='D', long)]
     debug: bool,
@@ -135,7 +131,7 @@ fn get_args() -> Args {
 
 /// Set the global logger from the `log` crate
 fn setup_logging(args: &ArgMatches) {
-    let l = if args.is_present("debug") {
+    let l = if args.debug {
         log::LevelFilter::Debug
     } else {
         log::LevelFilter::Info
@@ -146,14 +142,14 @@ fn setup_logging(args: &ArgMatches) {
 }
 
 fn main() {
-    let args = Arc::new(get_args());
+    let args = get_args();
     setup_logging(&args);
 
     if let Some(p) = args.path {
         env::set_var("PATH", p);
     }
 
-    let mut mgr = RunManager::new(args.clone());
+    let mut mgr = RunManager::new(&args);
     let statefile = mgr.get_statefile_clone();
 
     // Setup signals after the manager to handle the signals and unlock in

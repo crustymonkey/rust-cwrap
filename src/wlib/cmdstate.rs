@@ -1,5 +1,4 @@
 use log::debug;
-use clap::{ArgMatches, value_t};
 use serde::{Serialize, Deserialize};
 use serde_json;
 use std::process::{Command, Stdio};
