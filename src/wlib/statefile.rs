@@ -39,11 +39,11 @@ impl StateFile {
 
     /// Generate a name for the statefile, which is:
     ///     <command basename>.<md5 of full cli>
-    pub fn gen_name(cmd: &str, args: &Vec<String>, is_bash: bool) -> String {
-        let mut cli = cmd.to_string();
-        if args.len() > 0 {
+    pub fn gen_name(cmd: &Vec<String>, is_bash: bool) -> String {
+        let mut cli =  cmd[0].clone();
+        if cmd.len() > 1 {
             cli.push_str(" ");
-            cli.push_str(&args.join(" "));
+            cli.push_str(&cmd[1..].join(" "));
         }
 
         let hash_str = format!("{:x}", md5::compute(cli.as_bytes()));
@@ -54,7 +54,7 @@ impl StateFile {
         if is_bash {
             ret = sanitize_path(cli.split(" ").collect::<Vec<&str>>()[0], '-');
         } else {
-            ret = sanitize_path(cmd, '-');
+            ret = sanitize_path(&cmd[0], '-');
         }
 
         ret.push_str(".");

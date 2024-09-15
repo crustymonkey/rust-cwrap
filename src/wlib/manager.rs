@@ -14,7 +14,6 @@ use super::errors::lockfile;
 use random_number::random;
 
 pub struct RunManager {
-    args: Arc<ArgMatches<'static>>,
     cmd_state: cmdstate::CmdState,
     syslog: Option<SyslogHelper>,
     statefile: StateFile,
@@ -22,22 +21,15 @@ pub struct RunManager {
 
 impl RunManager {
     pub fn new(args: &Args) -> Self {
-        let cmd = args.cmd.unwrap();
-        let cmd_args = match args.values_of_lossy("ARGS") {
-            Some(v) => v,
-            None => Vec::new(),
-        };
-
         let mut statefile = StateFile::from_strs(
             &StateFile::gen_name(
-                &cmd,
-                &cmd_args,
-                args.is_present("bash-string"),
+                &args.cmd,
+                args.bash_string,
             ),
-            args.value_of("state_dir").unwrap(),
+            &args.state_dir,
         );
 
-        if let Some(f) = args.value_of("lock-file") {
+        if let Some(f) = args.lock_file {
             statefile.overwrite_lockfile(PathBuf::from(f));
         }
         

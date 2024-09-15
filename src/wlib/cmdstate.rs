@@ -12,19 +12,17 @@ use super::errors::serialize;
 /// This will manage the overall state of running the sub-commands
 #[derive(Serialize, Deserialize)]
 pub struct CmdState {
-    pub cmd: String,
-    pub cmd_args: Vec<String>,
+    pub cmd: Vec<String>,
     pub num_fails: usize,
     pub failures: Vec<CmdRun>,
 }
 
 impl CmdState {
-    pub fn new(cmd: String, cmd_args: Vec<String>) -> Self {
+    pub fn new(cmd: &Vec<String>) -> Self {
         return Self {
-            cmd: cmd,
-            cmd_args: cmd_args,
+            cmd: cmd.clone(),
             num_fails: 0,
-            failures: Vec::new(),
+            failures: vec![],
         };
     }
 
@@ -84,14 +82,7 @@ impl CmdState {
     }
 
     pub fn cli_to_string(&self) -> String {
-        let mut ret = String::new();
-        ret.push_str(&self.cmd);
-        if self.cmd_args.len() > 0 {
-            ret.push_str(" ");
-            ret.push_str(&self.cmd_args.join(" "));
-        }
-
-        return ret;
+        return self.cmd.join(" ").to_string();
     }
 }
 

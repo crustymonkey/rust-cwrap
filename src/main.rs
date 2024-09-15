@@ -90,7 +90,7 @@ struct Args {
     syslog_pri: String,
     /// The command and its arguments to run
     #[arg()]
-    cmd: Option<Vec<String>>,
+    cmd: Vec<String>,
     /// Turn on debug output
     #[arg(short='D', long)]
     debug: bool,
