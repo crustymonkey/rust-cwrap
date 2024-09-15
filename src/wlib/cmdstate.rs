@@ -99,16 +99,16 @@ pub struct CmdRun {
 
 impl CmdRun {
     /// Do a run of a command and return a CmdRun struct as the result
-    pub fn run(cmd: &CmdState, args: Arc<ArgMatches<'static>>) -> Self {
+    pub fn run(cmd_state: &CmdState, bash_string: bool, timeout: usize) -> Self {
         let start = SystemTime::now();
 
-        debug!("Spawning the child process for {}", cmd.cli_to_string());
+        debug!("Spawning the child process for {}", cmd_state.cli_to_string());
         let mut proc;
 
-        if args.is_present("bash-string") {
+        if bash_string {
             // We have to run this as a string under bash instead
             proc = match Command::new("bash")
-                    .args(&["-c".to_string(), cmd.cmd.clone()])
+                    .args(&["-c".to_string(), cmd_state.cli_to_string()])
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
                     .spawn() {
@@ -120,8 +120,8 @@ impl CmdRun {
                 },
             };
         } else {
-            proc = match Command::new(&cmd.cmd)
-                    .args(&cmd.cmd_args)
+            proc = match Command::new(&cmd_state.cmd[0])
+                    .args(&cmd_state.cmd[1..])
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
                     .spawn() {
@@ -137,7 +137,7 @@ impl CmdRun {
         debug!("Child started with pid: {}", proc.id());
 
         // Convert to millis
-        let timeout = value_t!(args, "timeout", u64).unwrap() * 1000;
+        let timeout = timeout * 1000;
 
         let mut run_time = 0;
         if timeout > 0 {

@@ -31,10 +31,10 @@ struct Args {
     lock_file: Option<String>,
     /// The number of times to retry this if a previous instance is running.
     /// This will try every '-s' seconds if this is greater than zero.
-    #[arg(short='r', long, default_value=0)]
+    #[arg(short='r', long, default_value="0")]
     num_retries: usize,
     /// The number of seconds between retries if locked
-    #[arg(short='s', long, default_value=10)]
+    #[arg(short='s', long, default_value="10")]
     retry_secs: usize,
     /// Ignore the failures which occur because this tried
     /// to run while a previous instance was still running.
@@ -42,7 +42,7 @@ struct Args {
     ignore_retry_fails: bool,
     /// The number of consecutive failures that must occur
     /// before a report is printed.
-    #[arg(short, long, default_value=1)]
+    #[arg(short, long, default_value="1")]
     num_fails: usize,
     /// The default is to print a failure report only when a
     /// multiple of the threshold. If this is set, a report will
@@ -65,12 +65,12 @@ struct Args {
     bash_string: bool,
     /// The number of seconds to allow the command to run before timing it out.
     /// If set to zero (default), timeouts are disabled.
-    #[arg(short, long, default_value=0)]
+    #[arg(short, long, default_value="0")]
     timeout: usize,
     /// This will add a random sleep between 0 and N seconds before
     /// executing the command.  Note that '--timeout' only pertains
     /// to command execution time.
-    #[arg(short='z', long, default_value=0)]
+    #[arg(short='z', long, default_value="0")]
     fuzz: usize,
     /// Only output error reports. If the command runs successfully,
     /// command runs successfully, nothing will be printed, even if
@@ -130,7 +130,7 @@ fn get_args() -> Args {
 }
 
 /// Set the global logger from the `log` crate
-fn setup_logging(args: &ArgMatches) {
+fn setup_logging(args: &Args) {
     let l = if args.debug {
         log::LevelFilter::Debug
     } else {
@@ -145,7 +145,7 @@ fn main() {
     let args = get_args();
     setup_logging(&args);
 
-    if let Some(p) = args.path {
+    if let Some(p) = &args.path {
         env::set_var("PATH", p);
     }
 

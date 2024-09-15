@@ -54,7 +54,7 @@ impl SyslogHelper {
             facility: Facility::from_str(facility).unwrap(),
             hostname: loc_hostname,
             process: "cwrap".to_string(),
-            pid: i32::try_from(id()).ok().unwrap(),
+            pid: id(),
         };
         
         let writer = syslog::unix(formatter).ok().unwrap();

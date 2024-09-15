@@ -17,6 +17,16 @@ pub struct RunManager {
     cmd_state: cmdstate::CmdState,
     syslog: Option<SyslogHelper>,
     statefile: StateFile,
+    fuzz: usize,
+    num_retries: usize,
+    retry_secs: usize,
+    ignore_retry_fails: bool,
+    bash_string: bool,
+    timeout: usize,
+    quiet: bool,
+    num_fails: usize,
+    backoff: bool,
+    first_fail: bool,
 }
 
 impl RunManager {
@@ -29,7 +39,7 @@ impl RunManager {
             &args.state_dir,
         );
 
-        if let Some(f) = args.lock_file {
+        if let Some(f) = &args.lock_file {
             statefile.overwrite_lockfile(PathBuf::from(f));
         }
         
@@ -37,38 +47,44 @@ impl RunManager {
         // otherwise
         let cmd_state = match cmdstate::CmdState::load(&statefile) {
             Ok(Some(v)) => v,
-            Ok(None) => cmdstate::CmdState::new(
-                cmd.clone(),
-                cmd_args.clone(),
-            ),
+            Ok(None) => cmdstate::CmdState::new(&args.cmd),
             Err(e) => {
                 panic!("Error loading command state from disk: {}", e);
             }
         };
 
         let mut syslog = None;
-        if args.is_present("syslog") {
+        if args.syslog {
             syslog = Some(SyslogHelper::new(
-                args.value_of("syslog_pri").unwrap(),
-                args.value_of("syslog_fac").unwrap(),
+                &args.syslog_pri,
+                &args.syslog_fac,
             ));
         }
 
         return Self {
-            args: args.clone(),
             cmd_state: cmd_state,
             syslog: syslog,
-            statefile: statefile
+            statefile: statefile,
+            fuzz: args.fuzz,
+            num_retries: args.num_retries,
+            retry_secs: args.retry_secs,
+            ignore_retry_fails: args.ignore_retry_fails,
+            bash_string: args.bash_string,
+            timeout: args.timeout,
+            quiet: args.quiet,
+            num_fails: args.num_fails,
+            backoff: args.backoff,
+            first_fail: args.first_fail,
         };
     }
 
     pub fn run_instance(&mut self, lock: bool) {
         // This is a hack to make the value_t macro work properly.  Not a big
         // deal as it's just another ref count
-        let a = self.args.clone();
+        //let a = self.args.clone();
 
-        let fuzz = value_t!(a, "fuzz", u64).unwrap();
-        if fuzz > 0 {
+        let fuzz = self.fuzz as u64;
+        if self.fuzz > 0 {
             // Sleep for a random bit here
             let sl_time: u64 = random!(..=fuzz);
             debug!("Sleeping (fuzz) for {} secs", sl_time);
@@ -77,13 +93,10 @@ impl RunManager {
 
         if lock {
             if let Err(e) = self.lock() {
-                if !self.args.is_present("ignore-retry-fails") {
-                    let num_retries = self.args.value_of("num_retries")
-                        .unwrap()
-                        .parse::<u32>().unwrap();
+                if !self.ignore_retry_fails {
                     error!(
                         "Could not get lock to run instance in {} retries: {}",
-                        num_retries,
+                        self.num_retries,
                         e,
                     );
                     exit(1);
@@ -91,12 +104,12 @@ impl RunManager {
             }
         }
 
-        let run = cmdstate::CmdRun::run(&self.cmd_state, self.args.clone());
+        let run = cmdstate::CmdRun::run(&self.cmd_state, self.bash_string, self.timeout);
         if run.exit_code != 0 || run.rust_err.is_some() {
             // We have a failure of some sort here
             self.handle_failure(run);
         } else {
-            if !a.is_present("quiet") {
+            if !self.quiet {
                 self.print_success_report(&run);
             }
             self.cmd_state.reset();
@@ -109,11 +122,9 @@ impl RunManager {
 
     /// Generate and print a report if necessary, per the cli opts
     fn handle_failure(&mut self, run: cmdstate::CmdRun) {
-        let a = self.args.clone();
         self.cmd_state.num_fails += 1;
-        let fail_thresh: usize = value_t!(a, "num_fails", usize).ok().unwrap();
 
-        if a.is_present("syslog") {
+        if self.syslog.is_some() {
             // Need to serialize the command run and write that
             match serde_json::to_string(&run) {
                 Ok(data) => self.log(
@@ -131,12 +142,12 @@ impl RunManager {
 
         // Now, determine whether we print a report or not.  I could do this as
         // a single OR statement, but it's a bit more readable as if/else if
-        if a.is_present("backoff") && self.backoff_match() {
+        if self.backoff && self.backoff_match() {
             self.print_failure_report(&run);
-        } else if self.cmd_state.num_fails % fail_thresh == 0 
-                && !a.is_present("backoff") {
+        } else if self.cmd_state.num_fails % self.num_fails == 0 
+                && self.backoff {
             self.print_failure_report(&run);
-        } else if a.is_present("first-fail") && self.cmd_state.num_fails == 1 {
+        } else if self.first_fail && self.cmd_state.num_fails == 1 {
             self.print_failure_report(&run);
         } else {
             // Finally, increment the failure and push the failure into the
@@ -151,9 +162,9 @@ impl RunManager {
             &format!("The specified number of failures, {}, has been reached \
                 for the following command, which has failed {} times in a \
                 row: {}\n\nFAILURES:\n",
-                self.args.value_of("num_fails").unwrap(),
+                self.num_fails,
                 self.cmd_state.num_fails,
-                self.cmd_state.cmd,
+                &self.cmd_state.cli_to_string(),
             )
         );
 
@@ -217,8 +228,7 @@ impl RunManager {
     }
 
     fn backoff_match(&self) -> bool {
-        let a = self.args.clone();
-        let mut count: usize = value_t!(a, "num_fails", usize).ok().unwrap();
+        let mut count = self.num_fails;
         while count <= self.cmd_state.num_fails {
             if count == self.cmd_state.num_fails {
                 return true;
@@ -232,15 +242,15 @@ impl RunManager {
 
     /// This will create the lockfile based on cli options that are set
     pub fn lock(&self) -> lockfile::Result<()> {
-        let a = self.args.clone();
-        let tries = value_t!(a, "num_retries", u32).ok().unwrap();
-        let ret_secs = value_t!(a, "retry_secs", u64).ok().unwrap();
+        //let a = self.args.clone();
+        let tries = self.num_retries as i64;
+        let ret_secs = self.retry_secs as u64;
         // The default for num_retries is 0, which is no retries, which is
         // why I'm setting this to -1 to allow it to run at least once
         let mut try_count: i64 = -1;
         let mut ret: lockfile::Result<()> = Ok(());
 
-        while i64::from(tries) > try_count {
+        while tries > try_count {
             debug!("Attempting to acquire lock to run");
             ret = self.statefile.lock();
             if ret.is_err() && tries > 0 {
