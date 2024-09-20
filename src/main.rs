@@ -88,7 +88,8 @@ struct Args {
     /// Set the syslog priority
     #[arg(short='P', long="syslog_priority", default_value="log_info")]
     syslog_pri: String,
-    /// The command and its arguments to run
+    /// The command to run.  This can be a single string (enclosed in quotes)
+    /// passed to bash if "-g" is set or the command and it's arguments.
     #[arg()]
     cmd: Vec<String>,
     /// Turn on debug output
