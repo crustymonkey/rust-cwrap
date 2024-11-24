@@ -2,7 +2,6 @@ extern crate random_number;
 
 use log::{debug, error};
 use serde_json;
-use std::sync::Arc;
 use std::path::PathBuf;
 use std::process::exit;
 use super::cmdstate;
@@ -21,7 +20,6 @@ pub struct RunManager {
     num_retries: usize,
     retry_secs: usize,
     ignore_retry_fails: bool,
-    bash_string: bool,
     timeout: usize,
     quiet: bool,
     num_fails: usize,
@@ -47,9 +45,9 @@ impl RunManager {
         // otherwise
         let cmd_state = match cmdstate::CmdState::load(&statefile) {
             Ok(Some(v)) => v,
-            Ok(None) => cmdstate::CmdState::new(&args.cmd),
+            Ok(None) => cmdstate::CmdState::new(&args.cmd, args.bash_string),
             Err(e) => {
-                panic!("Error loading command state from disk: {}", e);
+                panic!("Error loading command state from statefile {}: {}", statefile.full_p.to_str().unwrap(), e);
             }
         };
 
@@ -69,7 +67,6 @@ impl RunManager {
             num_retries: args.num_retries,
             retry_secs: args.retry_secs,
             ignore_retry_fails: args.ignore_retry_fails,
-            bash_string: args.bash_string,
             timeout: args.timeout,
             quiet: args.quiet,
             num_fails: args.num_fails,
@@ -104,7 +101,7 @@ impl RunManager {
             }
         }
 
-        let run = cmdstate::CmdRun::run(&self.cmd_state, self.bash_string, self.timeout);
+        let run = cmdstate::CmdRun::run(&self.cmd_state, self.cmd_state.bash_string, self.timeout);
         if run.exit_code != 0 || run.rust_err.is_some() {
             // We have a failure of some sort here
             self.handle_failure(run);
@@ -242,9 +239,9 @@ impl RunManager {
 
     /// This will create the lockfile based on cli options that are set
     pub fn lock(&self) -> lockfile::Result<()> {
-        //let a = self.args.clone();
         let tries = self.num_retries as i64;
         let ret_secs = self.retry_secs as u64;
+
         // The default for num_retries is 0, which is no retries, which is
         // why I'm setting this to -1 to allow it to run at least once
         let mut try_count: i64 = -1;
@@ -286,6 +283,7 @@ impl RunManager {
 
 impl Drop for RunManager {
     fn drop(&mut self) {
+        debug!("Running the drop for the manager");
         if let Err(e) = self.unlock() {
             error!("Error removing the lockfile!!: {}", e);
         }

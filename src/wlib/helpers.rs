@@ -2,7 +2,6 @@ extern crate syslog;
 extern crate hostname;
 
 use chrono::{TimeZone, Utc};
-use std::convert::TryFrom;
 use std::process::id;
 use std::str::FromStr;
 use super::errors::loc_syslog;

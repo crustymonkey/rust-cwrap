@@ -2,8 +2,6 @@
 #[macro_use] extern crate log;
 
 use clap::Parser;
-use core::arch;
-use std::sync::Arc;
 use std::process::exit;
 use std::thread;
 use std::env;

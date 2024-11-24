@@ -3,7 +3,6 @@ use serde::{Serialize, Deserialize};
 use serde_json;
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::sync::Arc;
 use crate::sleep_ms;
 use super::statefile::StateFile;
 use super::errors::serialize;
@@ -13,14 +12,16 @@ use super::errors::serialize;
 #[derive(Serialize, Deserialize)]
 pub struct CmdState {
     pub cmd: Vec<String>,
+    pub bash_string: bool,
     pub num_fails: usize,
     pub failures: Vec<CmdRun>,
 }
 
 impl CmdState {
-    pub fn new(cmd: &Vec<String>) -> Self {
+    pub fn new(cmd: &Vec<String>, bash_string: bool) -> Self {
         return Self {
             cmd: cmd.clone(),
+            bash_string: bash_string,
             num_fails: 0,
             failures: vec![],
         };

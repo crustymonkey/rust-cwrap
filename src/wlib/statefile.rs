@@ -12,10 +12,10 @@ use super::helpers::sanitize_path;
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct StateFile {
-    name: String,
-    base_path: PathBuf,
-    full_p: PathBuf,
-    lockfile: PathBuf,  // This will be base_path + name + .lock
+    pub name: String,
+    pub base_path: PathBuf,
+    pub full_p: PathBuf,
+    pub lockfile: PathBuf,  // This will be /dev/shm/ + name + .lock
 }
 
 impl StateFile {
