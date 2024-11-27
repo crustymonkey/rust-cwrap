@@ -58,8 +58,7 @@ pub mod serialize {
 
     impl fmt::Display for SerDeError {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            return write!(
-                f, "Serialization/deserialization error: {}", self.msg);
+            return write!(f, "Serialization/deserialization error: {}", self.msg);
         }
     }
 }

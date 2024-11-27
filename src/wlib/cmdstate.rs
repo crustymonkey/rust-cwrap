@@ -1,12 +1,11 @@
+use super::errors::serialize;
+use super::statefile::StateFile;
+use crate::sleep_ms;
 use log::debug;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::sleep_ms;
-use super::statefile::StateFile;
-use super::errors::serialize;
-
 
 /// This will manage the overall state of running the sub-commands
 #[derive(Serialize, Deserialize)]
@@ -35,7 +34,7 @@ impl CmdState {
             Err(e) => {
                 debug!("Failed to get the contents from the statefile: {}", e);
                 None
-            },
+            }
         };
 
         if sfs.is_none() {
@@ -45,9 +44,10 @@ impl CmdState {
 
         return match serde_json::from_str(&sfs.unwrap()) {
             Ok(v) => Ok(Some(v)),
-            Err(e) => Err(serialize::SerDeError::new(
-                format!("Failed to deserialize the content: {}", e)
-            )),
+            Err(e) => Err(serialize::SerDeError::new(format!(
+                "Failed to deserialize the content: {}",
+                e
+            ))),
         };
     }
 
@@ -68,18 +68,20 @@ impl CmdState {
         let ser_data = match serde_json::to_string(self) {
             Ok(data) => data,
             Err(e) => {
-                return Err(serialize::SerDeError::new(
-                    format!("Error serializing data: {}", e)
-                ));
-            },
+                return Err(serialize::SerDeError::new(format!(
+                    "Error serializing data: {}",
+                    e
+                )));
+            }
         };
 
         return match sf.write_contents(ser_data) {
-            Err(e) => Err(serialize::SerDeError::new(
-                format!("Error writing serialized data: {}", e)
-            )),
+            Err(e) => Err(serialize::SerDeError::new(format!(
+                "Error writing serialized data: {}",
+                e
+            ))),
             _ => Ok(()),
-        }
+        };
     }
 
     pub fn cli_to_string(&self) -> String {
@@ -103,35 +105,36 @@ impl CmdRun {
     pub fn run(cmd_state: &CmdState, bash_string: bool, timeout: usize) -> Self {
         let start = SystemTime::now();
 
-        debug!("Spawning the child process for {}", cmd_state.cli_to_string());
+        debug!(
+            "Spawning the child process for {}",
+            cmd_state.cli_to_string()
+        );
         let mut proc;
 
         if bash_string {
             // We have to run this as a string under bash instead
             proc = match Command::new("bash")
-                    .args(&["-c".to_string(), cmd_state.cli_to_string()])
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn() {
+                .args(&["-c".to_string(), cmd_state.cli_to_string()])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+            {
                 Ok(child) => child,
                 Err(e) => {
-                    return CmdRun::rust_err(
-                        format!("Failed to spawn child: {}", e)
-                    );
-                },
+                    return CmdRun::rust_err(format!("Failed to spawn child: {}", e));
+                }
             };
         } else {
             proc = match Command::new(&cmd_state.cmd[0])
-                    .args(&cmd_state.cmd[1..])
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn() {
+                .args(&cmd_state.cmd[1..])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+            {
                 Ok(child) => child,
                 Err(e) => {
-                    return CmdRun::rust_err(
-                        format!("Failed to spawn child: {}", e)
-                    );
-                },
+                    return CmdRun::rust_err(format!("Failed to spawn child: {}", e));
+                }
             };
         }
 
@@ -149,12 +152,10 @@ impl CmdRun {
                     Ok(None) => {
                         run_time += 100;
                         sleep_ms!(100);
-                    },
+                    }
                     Err(e) => {
-                        return CmdRun::rust_err(
-                            format!("Failure to spawn child: {}", e)
-                        );
-                    },
+                        return CmdRun::rust_err(format!("Failure to spawn child: {}", e));
+                    }
                 }
             }
         }
@@ -166,28 +167,27 @@ impl CmdRun {
                     debug!("Timeout exceeded, killing the subprocess");
 
                     match proc.kill() {
-                        Ok(_) => return Self {
-                            exit_code: -1,
-                            stdout: String::new(),
-                            stderr: String::new(),
-                            start_time: start
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs_f64(),
-                            run_time: SystemTime::now()
-                                .duration_since(start)
-                                .unwrap()
-                                .as_secs_f64(),
-                            rust_err: Some(format!(
-                                "Command reached timeout of {} secs",
-                                timeout / 1000,
-                            )),
-                        },
-                        Err(e) => return CmdRun::rust_err(
-                            format!("Failed to kill subprocess! {}", e)
-                        ),
+                        Ok(_) => {
+                            return Self {
+                                exit_code: -1,
+                                stdout: String::new(),
+                                stderr: String::new(),
+                                start_time: start.duration_since(UNIX_EPOCH).unwrap().as_secs_f64(),
+                                run_time: SystemTime::now()
+                                    .duration_since(start)
+                                    .unwrap()
+                                    .as_secs_f64(),
+                                rust_err: Some(format!(
+                                    "Command reached timeout of {} secs",
+                                    timeout / 1000,
+                                )),
+                            }
+                        }
+                        Err(e) => {
+                            return CmdRun::rust_err(format!("Failed to kill subprocess! {}", e))
+                        }
                     }
-                },
+                }
                 _ => (),
             }
         }
@@ -195,10 +195,8 @@ impl CmdRun {
         let output = match proc.wait_with_output() {
             Ok(out) => out,
             Err(e) => {
-                return CmdRun::rust_err(
-                    format!("Failure running child: {}", e)
-                );
-            },
+                return CmdRun::rust_err(format!("Failure running child: {}", e));
+            }
         };
 
         let total_run_time = SystemTime::now().duration_since(start).unwrap();

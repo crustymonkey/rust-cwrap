@@ -1,18 +1,18 @@
-extern crate syslog;
 extern crate hostname;
+extern crate syslog;
 
+use super::errors::loc_syslog;
 use chrono::{TimeZone, Utc};
 use std::process::id;
 use std::str::FromStr;
-use super::errors::loc_syslog;
-use syslog::{Severity, Facility, Formatter3164, Logger, LoggerBackend};
+use syslog::{Facility, Formatter3164, Logger, LoggerBackend, Severity};
 
 #[macro_export]
 macro_rules! sleep_ms {
     ($n:expr) => {
         let n: u64 = $n;
         std::thread::sleep(std::time::Duration::from_millis(n));
-    }
+    };
 }
 
 pub fn syslog_severity_from_str(sev_str: &str) -> loc_syslog::Result<Severity> {
@@ -25,9 +25,12 @@ pub fn syslog_severity_from_str(sev_str: &str) -> loc_syslog::Result<Severity> {
         "log_warning" | "warning" | "warn" => Severity::LOG_WARNING,
         "log_notice" | "notice" => Severity::LOG_NOTICE,
         "log_debug" | "debug" => Severity::LOG_DEBUG,
-        _ => return Err(loc_syslog::SyslogError::new(
-            format!("Invalid syslog priority: {}", sev_str)
-        )),
+        _ => {
+            return Err(loc_syslog::SyslogError::new(format!(
+                "Invalid syslog priority: {}",
+                sev_str
+            )))
+        }
     };
 
     return Ok(result);
@@ -55,7 +58,7 @@ impl SyslogHelper {
             process: "cwrap".to_string(),
             pid: id(),
         };
-        
+
         let writer = syslog::unix(formatter).ok().unwrap();
 
         return SyslogHelper {
@@ -95,9 +98,9 @@ pub fn format_ts(ts: f64) -> String {
 pub fn basename(path: &str) -> String {
     return match path.find("/") {
         Some(_) => {
-            let idx = path.rfind("/").unwrap() + 1;  // After the last "/"
+            let idx = path.rfind("/").unwrap() + 1; // After the last "/"
             path[idx..].to_string()
-        },
+        }
         None => path.to_string(),
     };
 }
@@ -140,7 +143,10 @@ fn test_basename() {
 
 #[test]
 fn test_format_ts() {
-    assert_eq!("Fri, 14 Jul 2017 02:40:00 +0000", format_ts(1_500_000_000.0));
+    assert_eq!(
+        "Fri, 14 Jul 2017 02:40:00 +0000",
+        format_ts(1_500_000_000.0)
+    );
     assert_eq!("Thu, 1 Jan 1970 00:00:00 +0000", format_ts(0.0));
     assert_eq!("Wed, 31 Dec 1969 23:59:59 +0000", format_ts(-1.0));
 }

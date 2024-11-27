@@ -1,16 +1,16 @@
 extern crate random_number;
 
+use super::cmdstate;
+use super::errors::lockfile;
+use super::helpers::{format_ts, SyslogHelper};
+use super::statefile::StateFile;
+use crate::sleep_ms;
+use crate::Args;
 use log::{debug, error};
+use random_number::random;
 use serde_json;
 use std::path::PathBuf;
 use std::process::exit;
-use super::cmdstate;
-use super::helpers::{SyslogHelper, format_ts};
-use crate::sleep_ms;
-use crate::Args;
-use super::statefile::StateFile;
-use super::errors::lockfile;
-use random_number::random;
 
 pub struct RunManager {
     cmd_state: cmdstate::CmdState,
@@ -30,33 +30,31 @@ pub struct RunManager {
 impl RunManager {
     pub fn new(args: &Args) -> Self {
         let mut statefile = StateFile::from_strs(
-            &StateFile::gen_name(
-                &args.cmd,
-                args.bash_string,
-            ),
+            &StateFile::gen_name(&args.cmd, args.bash_string),
             &args.state_dir,
         );
 
         if let Some(f) = &args.lock_file {
             statefile.overwrite_lockfile(PathBuf::from(f));
         }
-        
+
         // First, we try and load the CmdState from disk and create it
         // otherwise
         let cmd_state = match cmdstate::CmdState::load(&statefile) {
             Ok(Some(v)) => v,
             Ok(None) => cmdstate::CmdState::new(&args.cmd, args.bash_string),
             Err(e) => {
-                panic!("Error loading command state from statefile {}: {}", statefile.full_p.to_str().unwrap(), e);
+                panic!(
+                    "Error loading command state from statefile {}: {}",
+                    statefile.full_p.to_str().unwrap(),
+                    e
+                );
             }
         };
 
         let mut syslog = None;
         if args.syslog {
-            syslog = Some(SyslogHelper::new(
-                &args.syslog_pri,
-                &args.syslog_fac,
-            ));
+            syslog = Some(SyslogHelper::new(&args.syslog_pri, &args.syslog_fac));
         }
 
         return Self {
@@ -76,10 +74,6 @@ impl RunManager {
     }
 
     pub fn run_instance(&mut self, lock: bool) {
-        // This is a hack to make the value_t macro work properly.  Not a big
-        // deal as it's just another ref count
-        //let a = self.args.clone();
-
         let fuzz = self.fuzz as u64;
         if self.fuzz > 0 {
             // Sleep for a random bit here
@@ -93,8 +87,7 @@ impl RunManager {
                 if !self.ignore_retry_fails {
                     error!(
                         "Could not get lock to run instance in {} retries: {}",
-                        self.num_retries,
-                        e,
+                        self.num_retries, e,
                     );
                     exit(1);
                 }
@@ -124,16 +117,12 @@ impl RunManager {
         if self.syslog.is_some() {
             // Need to serialize the command run and write that
             match serde_json::to_string(&run) {
-                Ok(data) => self.log(
-                    &format!(
-                        "CWRAP FAILURE for `{}`: {}",
-                        self.cmd_state.cli_to_string(),
-                        data,
-                    )
-                ),
-                Err(e) => self.log(
-                    &format!("Error serializing run error: {}", e)
-                ),
+                Ok(data) => self.log(&format!(
+                    "CWRAP FAILURE for `{}`: {}",
+                    self.cmd_state.cli_to_string(),
+                    data,
+                )),
+                Err(e) => self.log(&format!("Error serializing run error: {}", e)),
             }
         }
 
@@ -141,8 +130,7 @@ impl RunManager {
         // a single OR statement, but it's a bit more readable as if/else if
         if self.backoff && self.backoff_match() {
             self.print_failure_report(&run);
-        } else if self.cmd_state.num_fails % self.num_fails == 0 
-                && self.backoff {
+        } else if self.cmd_state.num_fails % self.num_fails == 0 && self.backoff {
             self.print_failure_report(&run);
         } else if self.first_fail && self.cmd_state.num_fails == 1 {
             self.print_failure_report(&run);
@@ -155,15 +143,14 @@ impl RunManager {
 
     fn print_failure_report(&mut self, run: &cmdstate::CmdRun) {
         let mut output = String::new();
-        output.push_str(
-            &format!("The specified number of failures, {}, has been reached \
+        output.push_str(&format!(
+            "The specified number of failures, {}, has been reached \
                 for the following command, which has failed {} times in a \
                 row: {}\n\nFAILURES:\n",
-                self.num_fails,
-                self.cmd_state.num_fails,
-                &self.cmd_state.cli_to_string(),
-            )
-        );
+            self.num_fails,
+            self.cmd_state.num_fails,
+            &self.cmd_state.cli_to_string(),
+        ));
 
         // First, we print out the previous runs
         for fail in &self.cmd_state.failures {
@@ -185,19 +172,15 @@ impl RunManager {
 
         print!("{}", output);
     }
-    
+
     /// This will add to the building of a string for the failure report for a
     /// single run
     fn add_run_report(&self, rep: &mut String, fail: &cmdstate::CmdRun) {
         let f_div = "=====\n";
         let out_div = "-----\n";
         rep.push_str(f_div);
-        rep.push_str(
-            &format!("Command: {}\n", &self.cmd_state.cli_to_string())
-        );
-        rep.push_str(
-            &format!("Start Time: {}\n", format_ts(fail.start_time))
-        );
+        rep.push_str(&format!("Command: {}\n", &self.cmd_state.cli_to_string()));
+        rep.push_str(&format!("Start Time: {}\n", format_ts(fail.start_time)));
         rep.push_str(&format!("Run Time (seconds): {:.2}\n", fail.run_time));
         rep.push_str("Exit Code: ");
         if let Some(e) = &fail.rust_err {

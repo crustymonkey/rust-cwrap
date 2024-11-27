@@ -1,13 +1,13 @@
 extern crate md5;
 
-use std::convert::From;
-use std::fs::{File, OpenOptions, remove_file};
-use std::os::unix::fs::OpenOptionsExt;
-use std::io::{self, Write, Read};
-use std::path::PathBuf;
-use std::process;
 use super::errors::lockfile;
 use super::helpers::sanitize_path;
+use std::convert::From;
+use std::fs::{remove_file, File, OpenOptions};
+use std::io::{self, Read, Write};
+use std::os::unix::fs::OpenOptionsExt;
+use std::path::PathBuf;
+use std::process;
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -15,7 +15,7 @@ pub struct StateFile {
     pub name: String,
     pub base_path: PathBuf,
     pub full_p: PathBuf,
-    pub lockfile: PathBuf,  // This will be /dev/shm/ + name + .lock
+    pub lockfile: PathBuf, // This will be /dev/shm/ + name + .lock
 }
 
 impl StateFile {
@@ -40,7 +40,7 @@ impl StateFile {
     /// Generate a name for the statefile, which is:
     ///     <command basename>.<md5 of full cli>
     pub fn gen_name(cmd: &Vec<String>, is_bash: bool) -> String {
-        let mut cli =  cmd[0].clone();
+        let mut cli = cmd[0].clone();
         if cmd.len() > 1 {
             cli.push_str(" ");
             cli.push_str(&cmd[1..].join(" "));
@@ -91,31 +91,35 @@ impl StateFile {
 
     pub fn lock(&self) -> lockfile::Result<()> {
         if self.lockfile.exists() {
-            return Err(lockfile::LockError::new(
-                format!("Lockfile exists: {}", self.lockfile.display())));
+            return Err(lockfile::LockError::new(format!(
+                "Lockfile exists: {}",
+                self.lockfile.display()
+            )));
         }
-        
+
         // Write the current pid to the lockfile and handle errors
         match OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .open(&self.lockfile) {
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&self.lockfile)
+        {
             Ok(mut fp) => {
-                let mut b: Vec<u8> = process::id()
-                    .to_string()
-                    .as_bytes()
-                    .to_vec();
+                let mut b: Vec<u8> = process::id().to_string().as_bytes().to_vec();
                 if let Err(e) = fp.write_all(&mut b) {
-                    return Err(lockfile::LockError::new(
-                        format!("Failed to write to lockfile: {}", e)
-                    ));
+                    return Err(lockfile::LockError::new(format!(
+                        "Failed to write to lockfile: {}",
+                        e
+                    )));
                 }
-            },
-            Err(e) => return Err(lockfile::LockError::new(
-                format!("Failed to create lockfile: {}", e)
-            )),
+            }
+            Err(e) => {
+                return Err(lockfile::LockError::new(format!(
+                    "Failed to create lockfile: {}",
+                    e
+                )))
+            }
         }
 
         debug!("Created lockfile at {}", &self.lockfile.display());
@@ -127,9 +131,10 @@ impl StateFile {
         if self.lockfile.exists() {
             debug!("Removing lockfile at: {}", &self.lockfile.display());
             if let Err(e) = remove_file(&self.lockfile) {
-                return Err(lockfile::LockError::new(
-                    format!("Failure removing the lock file: {}", e)
-                ));
+                return Err(lockfile::LockError::new(format!(
+                    "Failure removing the lock file: {}",
+                    e
+                )));
             }
         }
         return Ok(());
