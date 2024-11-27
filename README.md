@@ -2,7 +2,7 @@
 A rust version of [cron-wrap](https://github.com/crustymonkey/cron-wrap)
 
 ## IMPORTANT!
-Version 0.2.0 is **breaking upgrade**.  You will have to remove all previous state files you have on disk as replacing the cwrap binary with a 0.1.x binary without removing state files will cause a crash (by design).  The state on disk has changed between versions.
+Version 0.2.0 is a **breaking upgrade**.  You will have to remove all previous state files you have on disk. Replacing the cwrap binary with a 0.2.x binary without removing state files will cause a crash (by design).  The state on disk has changed between versions.
 
 ## About
 This is mostly the same implementation as [cron-wrap](https://github.com/crustymonkey/cron-wrap), but without the SMTP options.  Those *may* be added
