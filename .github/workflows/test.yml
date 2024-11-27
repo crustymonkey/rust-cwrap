@@ -5,16 +5,15 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Test
         run: cargo test
       - name: Build Release
         if: startsWith(github.ref, 'refs/tags')
         run: cargo build --release
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags')
         with:
-          files: target/release/spel
+          files: target/release/cwrap
