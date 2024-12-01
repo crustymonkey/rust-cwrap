@@ -1,10 +1,9 @@
-use anyhow::Result;
 use crate::Args;
+use anyhow::Result;
 use hostname;
-use std::{io::Read, fs::File};
 use std::path::PathBuf;
-use users::{get_user_by_uid, get_current_uid};
-
+use std::{fs::File, io::Read};
+use users::{get_current_uid, get_user_by_uid};
 
 pub struct SMTPOptions {
     send_email: bool,
@@ -22,10 +21,18 @@ pub struct SMTPOptions {
 
 impl SMTPOptions {
     /// Create a set of options
-    pub fn new(send_email: bool, username: Option<String>, password: Option<String>,
-        subject: String, smtp_server: String, smtp_port: usize,
-        also_normal_output: bool, email_from: Option<String>,
-        recipient: Option<Vec<String>>, tls: bool, starttls: bool,
+    pub fn new(
+        send_email: bool,
+        username: Option<String>,
+        password: Option<String>,
+        subject: String,
+        smtp_server: String,
+        smtp_port: usize,
+        also_normal_output: bool,
+        email_from: Option<String>,
+        recipient: Option<Vec<String>>,
+        tls: bool,
+        starttls: bool,
     ) -> Self {
         let email_from = Self::generate_from_addr(email_from);
         return Self {
@@ -52,7 +59,7 @@ impl SMTPOptions {
             // variables
             let (uname, passw) = Self::parse_creds(path).unwrap();
             username = Some(uname);
-            password = Some(passw);       
+            password = Some(passw);
         }
 
         return Self {
@@ -94,7 +101,11 @@ impl SMTPOptions {
         // hostname
         let user = get_user_by_uid(get_current_uid()).unwrap();
         let hostname = hostname::get().unwrap();
-        return format!("{}@{}", user.name().to_str().unwrap(), &hostname.into_string().unwrap());
+        return format!(
+            "{}@{}",
+            user.name().to_str().unwrap(),
+            &hostname.into_string().unwrap()
+        );
     }
 
     /// Return an smtp url for use with lettre SMTPTransport::from_url()
@@ -107,9 +118,13 @@ impl SMTPOptions {
         url.push_str("://");
 
         if self.username.is_some() {
-            url.push_str(&format!("{}:{}@", self.username.clone().unwrap().as_str(), self.password.clone().unwrap_or("".to_string()).as_str()));
+            url.push_str(&format!(
+                "{}:{}@",
+                self.username.clone().unwrap().as_str(),
+                self.password.clone().unwrap_or("".to_string()).as_str()
+            ));
         }
-        
+
         url.push_str(&format!("{}:{}", &self.smtp_server, &self.smtp_port));
 
         if self.starttls {
@@ -118,14 +133,13 @@ impl SMTPOptions {
 
         return url;
     }
-
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use std::fs::{remove_file, OpenOptions};
+    use std::io::Write;
 
     fn build_test_opts() -> SMTPOptions {
         return SMTPOptions::new(
@@ -147,12 +161,18 @@ mod tests {
     fn test_smtp_url() {
         let mut opts = build_test_opts();
 
-        assert_eq!("smtp://monkey:password@smtp.example.com:25?tls=required".to_string(), opts.smtp_url());
+        assert_eq!(
+            "smtp://monkey:password@smtp.example.com:25?tls=required".to_string(),
+            opts.smtp_url()
+        );
 
         opts.tls = true;
         opts.starttls = false;
 
-        assert_eq!("smtps://monkey:password@smtp.example.com:25".to_string(), opts.smtp_url());
+        assert_eq!(
+            "smtps://monkey:password@smtp.example.com:25".to_string(),
+            opts.smtp_url()
+        );
 
         opts.username = None;
         assert_eq!("smtps://smtp.example.com:25".to_string(), opts.smtp_url());
@@ -166,7 +186,11 @@ mod tests {
         let password = "password";
 
         {
-            let mut file = OpenOptions::new().write(true).create(true).open(fname).unwrap();
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(fname)
+                .unwrap();
             let buf = format!("{}:{}", uname, password);
             file.write(buf.as_bytes()).unwrap();
         }
