@@ -98,7 +98,7 @@ struct Args {
     /// If specified along with --send-mail, cwrap will output to stdout *and*
     /// send a notification email.  The default with --send-mail is to send an
     /// email ONLY.
-    #[arg(short='N', default_value_t = false)]
+    #[arg(short = 'N', default_value_t = false)]
     also_normal_output: bool,
     /// The email address to use as the sending address.  If not specified, this
     /// will be set to the username and determined hostname.  It's advised that
@@ -120,7 +120,7 @@ struct Args {
     smtp_port: usize,
     /// Encrypt the connection using SSL/TLS directly.  Note that the port you
     /// connect to should expect a TLS connection (as opposed to STARTTLS).
-    #[arg(short='L', default_value_t = false)]
+    #[arg(short = 'L', default_value_t = false)]
     tls: bool,
     /// Encrypt the connection to the server using STARTTLS.  This is highly
     /// recommended unless you are using the default localhost connection.
