@@ -1,8 +1,6 @@
-extern crate hostname;
-extern crate syslog;
-
 use super::errors::loc_syslog;
 use chrono::{TimeZone, Utc};
+use hostname;
 use std::process::id;
 use std::str::FromStr;
 use syslog::{Facility, Formatter3164, Logger, LoggerBackend, Severity};

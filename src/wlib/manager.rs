@@ -4,6 +4,7 @@ use super::cmdstate;
 use super::errors::lockfile;
 use super::helpers::{format_ts, SyslogHelper};
 use super::statefile::StateFile;
+use super::smtp::SMTPOptions;
 use crate::sleep_ms;
 use crate::Args;
 use log::{debug, error};
@@ -25,6 +26,7 @@ pub struct RunManager {
     num_fails: usize,
     backoff: bool,
     first_fail: bool,
+    smtp_options: SMTPOptions,
 }
 
 impl RunManager {
@@ -57,6 +59,8 @@ impl RunManager {
             syslog = Some(SyslogHelper::new(&args.syslog_pri, &args.syslog_fac));
         }
 
+        let smtp_options = SMTPOptions::from_args(args);
+
         return Self {
             cmd_state: cmd_state,
             syslog: syslog,
@@ -70,6 +74,7 @@ impl RunManager {
             num_fails: args.num_fails,
             backoff: args.backoff,
             first_fail: args.first_fail,
+            smtp_options: smtp_options,
         };
     }
 

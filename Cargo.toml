@@ -24,3 +24,6 @@ hostname = "0.4"
 md5 = "0.7"
 random-number = "0.1"
 signal-hook = "0.3"
+lettre = { version = "0.11", features = ["builder", "smtp-transport", "hostname", "rustls-tls"] }
+anyhow = "1"
+users = "0.11"
