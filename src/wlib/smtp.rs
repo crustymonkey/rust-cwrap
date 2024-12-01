@@ -1,20 +1,21 @@
 use crate::Args;
 use anyhow::Result;
 use hostname;
+use lettre::{message::header::ContentType, Message, SmtpTransport, Transport};
 use std::path::PathBuf;
 use std::{fs::File, io::Read};
 use users::{get_current_uid, get_user_by_uid};
 
 pub struct SMTPOptions {
-    send_email: bool,
+    pub send_email: bool,
     username: Option<String>,
     password: Option<String>,
     subject: String,
     smtp_server: String,
     smtp_port: usize,
-    also_normal_output: bool,
+    pub also_normal_output: bool,
     email_from: String,
-    recipient: Option<Vec<String>>,
+    recipient: Vec<String>,
     tls: bool,
     starttls: bool,
 }
@@ -30,7 +31,7 @@ impl SMTPOptions {
         smtp_port: usize,
         also_normal_output: bool,
         email_from: Option<String>,
-        recipient: Option<Vec<String>>,
+        recipient: Vec<String>,
         tls: bool,
         starttls: bool,
     ) -> Self {
@@ -62,6 +63,14 @@ impl SMTPOptions {
             password = Some(passw);
         }
 
+        let mut recip: Vec<String> = vec![];
+
+        if args.send_mail && args.recipient.is_none() {
+            panic!("Invalid options, if you wish to send email directly, you must specify at least 1 recipient.");
+        } else if let Some(tmp) = args.recipient.clone() {
+            recip = tmp;
+        }
+
         return Self {
             send_email: args.send_mail,
             username: username,
@@ -71,7 +80,7 @@ impl SMTPOptions {
             smtp_port: args.smtp_port,
             also_normal_output: args.also_normal_output,
             email_from: Self::generate_from_addr(args.email_from.clone()),
-            recipient: args.recipient.clone(),
+            recipient: recip,
             tls: args.tls,
             starttls: args.starttls,
         };
@@ -135,6 +144,35 @@ impl SMTPOptions {
     }
 }
 
+/// Convenience function for the sending of the email.
+pub fn send_email(body: &str, opts: &SMTPOptions) -> Result<()> {
+    if !opts.send_email {
+        return Ok(());
+    }
+
+    let mut builder = Message::builder()
+        .from(opts.email_from.as_str().parse()?)
+        .reply_to(opts.email_from.as_str().parse()?)
+        .to(opts.recipient[0].parse()?)
+        .subject(opts.subject.clone())
+        .header(ContentType::TEXT_PLAIN);
+
+    // Add the rest of the recipients
+    for cc in &opts.recipient[1..] {
+        builder = builder.cc(cc.parse()?);
+    }
+
+    // Adding the body will finalize the message
+    let message = builder.body(body.to_string())?;
+
+    // Now we create the transport and send the email
+    let mailer = SmtpTransport::from_url(&opts.smtp_url())?.build();
+
+    mailer.send(&message)?;
+
+    return Ok(());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,7 +189,7 @@ mod tests {
             25,
             false,
             Some("user@example.com".to_string()),
-            Some(vec!["user2@example.com".to_string()]),
+            vec!["user2@example.com".to_string()],
             false,
             true,
         );
