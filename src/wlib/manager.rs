@@ -130,7 +130,7 @@ impl RunManager {
         // a single OR statement, but it's a bit more readable as if/else if
         if self.backoff && self.backoff_match() {
             self.print_failure_report(&run);
-        } else if self.cmd_state.num_fails % self.num_fails == 0 && self.backoff {
+        } else if self.cmd_state.num_fails % self.num_fails == 0 && !self.backoff {
             self.print_failure_report(&run);
         } else if self.first_fail && self.cmd_state.num_fails == 1 {
             self.print_failure_report(&run);
