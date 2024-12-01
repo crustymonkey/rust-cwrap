@@ -3,7 +3,7 @@ extern crate random_number;
 use super::cmdstate;
 use super::errors::lockfile;
 use super::helpers::{format_ts, SyslogHelper};
-use super::smtp::SMTPOptions;
+use super::smtp::{send_email, SMTPOptions};
 use super::statefile::StateFile;
 use crate::sleep_ms;
 use crate::Args;
@@ -164,7 +164,19 @@ impl RunManager {
 
         self.add_run_report(&mut output, run);
 
-        print!("{}", output);
+        if self.smtp_options.send_email {
+            if let Err(e) = send_email(&output, &self.smtp_options) {
+                print!(
+                    "*** Failed to send the email using internal transport ***\nError: {}\n",
+                    e
+                );
+            }
+        }
+
+        // Print if we are not sending an email unless also normal output is set
+        if !self.smtp_options.send_email || self.smtp_options.also_normal_output {
+            print!("{}", output);
+        }
 
         // And finally, reset the command state
         self.cmd_state.reset_runs();
