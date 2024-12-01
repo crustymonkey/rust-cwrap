@@ -135,7 +135,8 @@ struct Args {
     /// (Recommended) Specify the path to a a credentials file instead of
     /// specifying a username and password directly.  The file should simply
     /// have the SMTP credentials in the form of USERNAME:PASSWORD as the only
-    /// contents.
+    /// contents. Note that the username/password must be utf-8 or this will
+    /// crash.
     #[arg(short = 'D', long = "smtp_creds_file")]
     creds_file: Option<PathBuf>,
     /// The command to run.  This can be a single string (enclosed in quotes)

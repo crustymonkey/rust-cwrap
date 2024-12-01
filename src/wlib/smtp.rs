@@ -124,6 +124,8 @@ impl SMTPOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use std::fs::{remove_file, OpenOptions};
 
     fn build_test_opts() -> SMTPOptions {
         return SMTPOptions::new(
@@ -154,5 +156,26 @@ mod tests {
 
         opts.username = None;
         assert_eq!("smtps://smtp.example.com:25".to_string(), opts.smtp_url());
+    }
+
+    #[test]
+    fn test_parse_creds() {
+        let fname = "/tmp/test-creds";
+        let path = PathBuf::from(fname);
+        let uname = "user";
+        let password = "password";
+
+        {
+            let mut file = OpenOptions::new().write(true).create(true).open(fname).unwrap();
+            let buf = format!("{}:{}", uname, password);
+            file.write(buf.as_bytes()).unwrap();
+        }
+
+        let (user, pass) = SMTPOptions::parse_creds(&path).unwrap();
+
+        assert_eq!(uname, &user);
+        assert_eq!(password, &pass);
+
+        remove_file(path).unwrap();
     }
 }
