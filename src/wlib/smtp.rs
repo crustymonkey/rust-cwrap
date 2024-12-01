@@ -21,7 +21,8 @@ pub struct SMTPOptions {
 }
 
 impl SMTPOptions {
-    /// Create a set of options
+    /// Create a set of options from scratch.  This is here for testing.
+    #[allow(dead_code)]
     pub fn new(
         send_email: bool,
         username: Option<String>,
