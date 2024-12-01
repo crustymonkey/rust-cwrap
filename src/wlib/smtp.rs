@@ -1,0 +1,158 @@
+use anyhow::Result;
+use crate::Args;
+use hostname;
+use std::{io::Read, fs::File};
+use std::path::PathBuf;
+use users::{get_user_by_uid, get_current_uid};
+
+
+pub struct SMTPOptions {
+    send_email: bool,
+    username: Option<String>,
+    password: Option<String>,
+    subject: String,
+    smtp_server: String,
+    smtp_port: usize,
+    also_normal_output: bool,
+    email_from: String,
+    recipient: Option<Vec<String>>,
+    tls: bool,
+    starttls: bool,
+}
+
+impl SMTPOptions {
+    /// Create a set of options
+    pub fn new(send_email: bool, username: Option<String>, password: Option<String>,
+        subject: String, smtp_server: String, smtp_port: usize,
+        also_normal_output: bool, email_from: Option<String>,
+        recipient: Option<Vec<String>>, tls: bool, starttls: bool,
+    ) -> Self {
+        let email_from = Self::generate_from_addr(email_from);
+        return Self {
+            send_email,
+            username,
+            password,
+            subject,
+            smtp_server,
+            smtp_port,
+            also_normal_output,
+            email_from,
+            recipient,
+            tls,
+            starttls,
+        };
+    }
+    /// Extract the SMTP options from the command-line args
+    pub fn from_args(args: &Args) -> Self {
+        let mut username = args.username.clone();
+        let mut password = args.password.clone();
+
+        if let Some(path) = &args.creds_file {
+            // We have the creds in a file, let's grab those and populate our
+            // variables
+            let (uname, passw) = Self::parse_creds(path).unwrap();
+            username = Some(uname);
+            password = Some(passw);       
+        }
+
+        return Self {
+            send_email: args.send_mail,
+            username: username,
+            password: password,
+            subject: args.subject.clone(),
+            smtp_server: args.smtp_server.clone(),
+            smtp_port: args.smtp_port,
+            also_normal_output: args.also_normal_output,
+            email_from: Self::generate_from_addr(args.email_from.clone()),
+            recipient: args.recipient.clone(),
+            tls: args.tls,
+            starttls: args.starttls,
+        };
+    }
+
+    /// Static method for parsing the creds file
+    pub fn parse_creds(path: &PathBuf) -> Result<(String, String)> {
+        let mut file = File::open(path)?;
+        let mut buf: Vec<u8> = vec![];
+        file.read_to_end(&mut buf)?;
+
+        let contents = String::from_utf8(buf)?;
+        let (username, password) = contents.split_once(':').unwrap();
+
+        return Ok((username.to_string(), password.to_string()));
+    }
+
+    /// This will generate a from address by using the executing user and
+    /// the system hostname
+    pub fn generate_from_addr(email_from: Option<String>) -> String {
+        // If the address was specified, just return it
+        if let Some(from) = email_from {
+            return from;
+        }
+
+        // Otherwise, we have to generate the from address from the user and
+        // hostname
+        let user = get_user_by_uid(get_current_uid()).unwrap();
+        let hostname = hostname::get().unwrap();
+        return format!("{}@{}", user.name().to_str().unwrap(), &hostname.into_string().unwrap());
+    }
+
+    /// Return an smtp url for use with lettre SMTPTransport::from_url()
+    pub fn smtp_url(&self) -> String {
+        // Start building out the url
+        let mut url = "smtp".to_string();
+        if self.tls {
+            url.push_str("s");
+        }
+        url.push_str("://");
+
+        if self.username.is_some() {
+            url.push_str(&format!("{}:{}@", self.username.clone().unwrap().as_str(), self.password.clone().unwrap_or("".to_string()).as_str()));
+        }
+        
+        url.push_str(&format!("{}:{}", &self.smtp_server, &self.smtp_port));
+
+        if self.starttls {
+            url.push_str("?tls=required");
+        }
+
+        return url;
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn build_test_opts() -> SMTPOptions {
+        return SMTPOptions::new(
+            true,
+            Some("monkey".to_string()),
+            Some("password".to_string()),
+            "Test Subject".to_string(),
+            "smtp.example.com".to_string(),
+            25,
+            false,
+            Some("user@example.com".to_string()),
+            Some(vec!["user2@example.com".to_string()]),
+            false,
+            true,
+        );
+    }
+
+    #[test]
+    fn test_smtp_url() {
+        let mut opts = build_test_opts();
+
+        assert_eq!("smtp://monkey:password@smtp.example.com:25?tls=required".to_string(), opts.smtp_url());
+
+        opts.tls = true;
+        opts.starttls = false;
+
+        assert_eq!("smtps://monkey:password@smtp.example.com:25".to_string(), opts.smtp_url());
+
+        opts.username = None;
+        assert_eq!("smtps://smtp.example.com:25".to_string(), opts.smtp_url());
+    }
+}

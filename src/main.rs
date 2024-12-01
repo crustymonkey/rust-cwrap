@@ -7,6 +7,7 @@ use clap::Parser;
 use signal_hook::consts::signal::{SIGHUP, SIGINT, SIGTERM};
 use signal_hook::iterator::Signals;
 use std::env;
+use std::path::PathBuf;
 use std::process::exit;
 use std::thread;
 
@@ -31,10 +32,10 @@ struct Args {
     lock_file: Option<String>,
     /// The number of times to retry this if a previous instance is running.
     /// This will try every '-s' seconds if this is greater than zero.
-    #[arg(short = 'r', long, default_value = "0")]
+    #[arg(short = 'r', long, default_value_t = 0)]
     num_retries: usize,
     /// The number of seconds between retries if locked
-    #[arg(short = 's', long, default_value = "10")]
+    #[arg(short = 's', long, default_value_t = 10)]
     retry_secs: usize,
     /// Ignore the failures which occur because this tried
     /// to run while a previous instance was still running.
@@ -42,7 +43,7 @@ struct Args {
     ignore_retry_fails: bool,
     /// The number of consecutive failures that must occur
     /// before a report is printed.
-    #[arg(short, long, default_value = "1")]
+    #[arg(short, long, default_value_t = 1)]
     num_fails: usize,
     /// The default is to print a failure report only when a
     /// multiple of the threshold. If this is set, a report will
@@ -65,12 +66,12 @@ struct Args {
     bash_string: bool,
     /// The number of seconds to allow the command to run before timing it out.
     /// If set to zero (default), timeouts are disabled.
-    #[arg(short, long, default_value = "0")]
+    #[arg(short, long, default_value_t = 0)]
     timeout: usize,
     /// This will add a random sleep between 0 and N seconds before
     /// executing the command.  Note that '--timeout' only pertains
     /// to command execution time.
-    #[arg(short = 'z', long, default_value = "0")]
+    #[arg(short = 'z', long, default_value_t = 0)]
     fuzz: usize,
     /// Only output error reports. If the command runs successfully,
     /// command runs successfully, nothing will be printed, even if
@@ -88,9 +89,57 @@ struct Args {
     /// Set the syslog priority
     #[arg(short = 'P', long = "syslog_priority", default_value = "log_info")]
     syslog_pri: String,
+    /// Send an email directly from within cwrap itself.  This option is *required*
+    /// with any of the SMTP options below this.  If this is not specified, any
+    /// email options below will be ignored.  Note that this can be used with
+    /// --also-normal-output to also output to stdout (default: email only).
+    #[arg(short = 'M', default_value_t = false)]
+    send_mail: bool,
+    /// If specified along with --send-mail, cwrap will output to stdout *and*
+    /// send a notification email.  The default with --send-mail is to send an
+    /// email ONLY.
+    #[arg(short='N', default_value_t = false)]
+    also_normal_output: bool,
+    /// The email address to use as the sending address.  If not specified, this
+    /// will be set to the username and determined hostname.  It's advised that
+    /// this is set.
+    #[arg(short = 'E')]
+    email_from: Option<String>,
+    /// The recipient(s) to send the email to.  This can be specified multiple
+    /// times to send to multiple addresses.
+    #[arg(short = 'R')]
+    recipient: Option<Vec<String>>,
+    /// The subject to use for the email.
+    #[arg(short = 'J', default_value = "cwrap failure report")]
+    subject: String,
+    /// The SMTP server address (hostname or IP) to connect to.
+    #[arg(short = 'X', default_value = "localhost")]
+    smtp_server: String,
+    /// The SMTP port to connect to.
+    #[arg(short = 'T', default_value_t = 25)]
+    smtp_port: usize,
+    /// Encrypt the connection using SSL/TLS directly.  Note that the port you
+    /// connect to should expect a TLS connection (as opposed to STARTTLS).
+    #[arg(short='L', default_value_t = false)]
+    tls: bool,
+    /// Encrypt the connection to the server using STARTTLS.  This is highly
+    /// recommended unless you are using the default localhost connection.
+    #[arg(short = 'Z', long = "starttls", default_value_t = false)]
+    starttls: bool,
+    /// The username to use for SMTP authentication.
+    #[arg(short = 'U', long = "smtp_username")]
+    username: Option<String>,
+    /// The password to use for SMTP authentication.
+    #[arg(short = 'W', long = "smtp_password")]
+    password: Option<String>,
+    /// (Recommended) Specify the path to a a credentials file instead of
+    /// specifying a username and password directly.  The file should simply
+    /// have the SMTP credentials in the form of USERNAME:PASSWORD as the only
+    /// contents.
+    #[arg(short = 'D', long = "smtp_creds_file")]
+    creds_file: Option<PathBuf>,
     /// The command to run.  This can be a single string (enclosed in quotes)
     /// passed to bash if "-g" is set or the command and it's arguments.
-    #[arg()]
     cmd: Vec<String>,
     /// Turn on debug output
     #[arg(short = 'D', long)]
