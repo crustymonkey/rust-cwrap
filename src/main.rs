@@ -32,28 +32,28 @@ struct Args {
     lock_file: Option<String>,
     /// The number of times to retry this if a previous instance is running.
     /// This will try every '-s' seconds if this is greater than zero.
-    #[arg(short = 'r', long, default_value_t = 0)]
+    #[arg(short = 'r', long, default_value_t = 0, help_heading = "FAIL OPTS")]
     num_retries: usize,
     /// The number of seconds between retries if locked
-    #[arg(short = 's', long, default_value_t = 10)]
+    #[arg(short = 's', long, default_value_t = 10, help_heading = "FAIL OPTS")]
     retry_secs: usize,
     /// Ignore the failures which occur because this tried
     /// to run while a previous instance was still running.
-    #[arg(short, long)]
+    #[arg(short, long, help_heading = "FAIL OPTS")]
     ignore_retry_fails: bool,
     /// The number of consecutive failures that must occur
     /// before a report is printed.
-    #[arg(short, long, default_value_t = 1)]
+    #[arg(short, long, default_value_t = 1, help_heading = "FAIL OPTS")]
     num_fails: usize,
     /// The default is to print a failure report only when a
     /// multiple of the threshold. If this is set, a report will
     /// *also* be generated on the 1st failure
-    #[arg(short, long)]
+    #[arg(short, long, help_heading = "FAIL OPTS")]
     first_fail: bool,
     /// Instead of generating a report every '-n' failures, if this is set,
     /// a report is generated at a decaying rate.  If you set '--num-fails'
     /// to 3, then a report is produced at 3, 6, 12, 24... failures.
-    #[arg(short, long)]
+    #[arg(short, long, help_heading = "FAIL OPTS")]
     backoff: bool,
     /// Use this for the PATH variable instead of the default.
     #[arg(short, long)]
@@ -66,7 +66,7 @@ struct Args {
     bash_string: bool,
     /// The number of seconds to allow the command to run before timing it out.
     /// If set to zero (default), timeouts are disabled.
-    #[arg(short, long, default_value_t = 0)]
+    #[arg(short, long, default_value_t = 0, help_heading = "FAIL OPTS")]
     timeout: usize,
     /// This will add a random sleep between 0 and N seconds before
     /// executing the command.  Note that '--timeout' only pertains
