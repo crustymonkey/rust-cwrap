@@ -24,7 +24,7 @@ use wlib::manager::RunManager;
 )]
 struct Args {
     /// The directory to write the state file to
-    #[arg(short = 'd', long = "state_directory", default_value = "/var/tmp")]
+    #[arg(short = 'd', long, default_value = "/var/tmp")]
     state_dir: String,
     /// Set a specific lock file to use. The default is to generate one,
     /// but this can be useful if you have different jobs that can't run concurrently.
@@ -83,10 +83,10 @@ struct Args {
     #[arg(short = 'S', long, help_heading = "SYSLOG")]
     syslog: bool,
     /// Set the logging facility.  The list of available facilities is here: http://t.ly/2nqs
-    #[arg(short = 'C', long = "syslog_facility", help_heading = "SYSLOG", default_value = "log_local7")]
+    #[arg(short = 'C', long, help_heading = "SYSLOG", default_value = "log_local7")]
     syslog_fac: String,
     /// Set the syslog priority
-    #[arg(short = 'P', long = "syslog_priority", help_heading = "SYSLOG", default_value = "log_info")]
+    #[arg(short = 'P', long, help_heading = "SYSLOG", default_value = "log_info")]
     syslog_pri: String,
     /// Send an email directly from within cwrap itself.  This option is *required*
     /// with any of the SMTP options below this.  If this is not specified, any
@@ -126,17 +126,17 @@ struct Args {
     #[arg(short = 'Z', long = "starttls", help_heading = "EMAIL")]
     starttls: bool,
     /// The username to use for SMTP authentication.
-    #[arg(short = 'U', long = "smtp_username", help_heading = "EMAIL")]
+    #[arg(short = 'U',long, help_heading = "EMAIL")]
     username: Option<String>,
     /// The password to use for SMTP authentication.
-    #[arg(short = 'W', long = "smtp_password", help_heading = "EMAIL")]
+    #[arg(short = 'W', long, help_heading = "EMAIL")]
     password: Option<String>,
     /// (Recommended) Specify the path to a a credentials file instead of
     /// specifying a username and password directly.  The file should simply
     /// have the SMTP credentials in the form of USERNAME:PASSWORD as the only
     /// contents. Note that the username/password must be utf-8 or this will
     /// crash.
-    #[arg(short = 'Y', long = "smtp_creds_file", help_heading = "EMAIL")]
+    #[arg(short = 'Y', long, help_heading = "EMAIL")]
     creds_file: Option<PathBuf>,
     /// The command to run.  This can be a single string (enclosed in quotes)
     /// passed to bash if "-g" is set or the command and it's arguments.
